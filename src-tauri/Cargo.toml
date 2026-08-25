@@ -1,0 +1,30 @@
+[package]
+name = "seed-guardian"
+version = "0.1.0"
+description = "Découpage et reconstruction de seed de wallet crypto (SLIP-39)"
+edition = "2021"
+rust-version = "1.77.2"
+
+# Le binaire porte un nom distinct du crate de bibliothèque pour éviter la
+# collision de noms signalée par Cargo sous Windows.
+[[bin]]
+name = "seed-guardian"
+path = "src/main.rs"
+
+[lib]
+name = "seed_guardian_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+# La coquille ne contient aucune logique métier : on optimise pour la taille.
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

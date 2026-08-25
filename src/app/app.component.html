@@ -1,0 +1,254 @@
+<div class="page">
+  <header class="masthead">
+    <span class="masthead-mark">◇</span>
+    <div>
+      <h1>Seed Guardian</h1>
+      <p class="masthead-sub">Découpage SLIP-39 &middot; exécution locale, aucune donnée envoyée</p>
+    </div>
+  </header>
+
+  <div class="view-switch" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      [class.active]="view === 'split'"
+      (click)="setView('split')"
+    >
+      Découper une seed
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [class.active]="view === 'recover'"
+      (click)="setView('recover')"
+    >
+      Reconstruire depuis des fragments
+    </button>
+  </div>
+
+  <main class="layout" *ngIf="view === 'split'">
+    <section class="panel form-panel" aria-labelledby="form-title">
+      <h2 id="form-title">1. Paramètres du découpage</h2>
+
+      <div class="mode-switch" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          [class.active]="mode === 'mnemonic'"
+          [disabled]="status() === 'loading'"
+          (click)="setMode('mnemonic')"
+        >
+          Phrase mnémonique (12-24 mots)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="mode === 'hex'"
+          [disabled]="status() === 'loading'"
+          (click)="setMode('hex')"
+        >
+          Hexadécimal (avancé)
+        </button>
+      </div>
+
+      <div class="field" *ngIf="mode === 'mnemonic'">
+        <div class="label-row">
+          <label for="mnemonic">Phrase de récupération</label>
+          <button type="button" class="link-btn" (click)="fillTestVector()">
+            Remplir avec la phrase de test standard
+          </button>
+        </div>
+        <textarea
+          id="mnemonic"
+          class="mono"
+          rows="3"
+          placeholder="abandon ability able about above absent absorb abstract absurd abuse access accident"
+          [(ngModel)]="mnemonicPhrase"
+          [disabled]="status() === 'loading'"
+          spellcheck="false"
+        ></textarea>
+        <p class="hint" [class.hint-error]="mnemonicError">
+          {{ mnemonicError || "Les 12 à 24 mots de ta seed, séparés par des espaces. Ta passphrase (25e mot), s'il y en a une, ne se saisit pas ici : elle reste connue de toi seul." }}
+        </p>
+      </div>
+
+      <div class="field" *ngIf="mode === 'hex'">
+        <label for="secret">Secret (hexadécimal)</label>
+        <textarea
+          id="secret"
+          class="mono"
+          rows="3"
+          placeholder="0c9490bc6ed6bcbf61636879648496de"
+          [(ngModel)]="secretHex"
+          [disabled]="status() === 'loading'"
+          spellcheck="false"
+        ></textarea>
+        <p class="hint" [class.hint-error]="hexError">
+          {{ hexError || "Entropie brute déjà convertie en hexadécimal (32 octets = 64 caractères pour une seed 24 mots)." }}
+        </p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="total">Nombre total de fragments (N)</label>
+          <input
+            id="total"
+            type="number"
+            min="1"
+            max="16"
+            [(ngModel)]="total"
+            [disabled]="status() === 'loading'"
+          />
+        </div>
+        <div class="field">
+          <label for="threshold">Fragments requis pour reconstruire (M)</label>
+          <input
+            id="threshold"
+            type="number"
+            min="1"
+            [max]="total"
+            [(ngModel)]="threshold"
+            [disabled]="status() === 'loading'"
+          />
+        </div>
+      </div>
+      <p class="hint" [class.hint-error]="thresholdError">
+        {{ thresholdError || (threshold + ' fragments sur ' + total + ' suffiront à reconstruire le secret.') }}
+      </p>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="!canGenerate"
+          (click)="generate()"
+        >
+          {{ status() === 'loading' ? 'Génération…' : 'Générer les fragments' }}
+        </button>
+        <button
+          type="button"
+          class="btn-ghost"
+          *ngIf="fragments().length"
+          (click)="reset()"
+        >
+          Réinitialiser
+        </button>
+      </div>
+
+      <p class="error-banner" *ngIf="status() === 'error'">
+        {{ errorMessage() }}
+      </p>
+    </section>
+
+    <section class="panel results-panel" *ngIf="fragments().length" aria-labelledby="results-title">
+      <div class="results-header">
+        <h2 id="results-title">
+          2. {{ fragments().length }} fragments générés
+          <span class="threshold-badge">{{ threshold }} sur {{ total }} requis</span>
+        </h2>
+        <button type="button" class="btn-ghost" (click)="print()">Imprimer</button>
+      </div>
+
+      <div class="fragment-grid">
+        <article class="fragment-card" *ngFor="let f of fragments()">
+          <div class="fragment-tag">
+            <span>FRAGMENT</span>
+            <strong>{{ f.index }} / {{ f.total }}</strong>
+          </div>
+          <img class="fragment-qr" [src]="f.qrDataUrl" alt="QR code du fragment {{ f.index }}" />
+          <div class="fragment-perforation" aria-hidden="true"></div>
+          <p class="fragment-mnemonic mono">{{ f.mnemonic }}</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <main class="layout" *ngIf="view === 'recover'">
+    <section class="panel form-panel" aria-labelledby="recover-title">
+      <h2 id="recover-title">Fragments à combiner</h2>
+      <p class="hint">
+        Saisis ou colle la phrase mnémonique SLIP-39 de chaque fragment (celle affichée sous son
+        QR code). Il en faut au moins autant que le seuil choisi lors du découpage.
+      </p>
+
+      <div class="share-list">
+        <div class="field share-field" *ngFor="let share of recoveryShares; let i = index">
+          <div class="label-row">
+            <label [for]="'share-' + i">Fragment {{ i + 1 }}</label>
+            <button
+              type="button"
+              class="link-btn"
+              *ngIf="recoveryShares.length > 2"
+              (click)="removeRecoveryShare(i)"
+              [disabled]="recoveryStatus() === 'loading'"
+            >
+              Retirer
+            </button>
+          </div>
+          <textarea
+            [id]="'share-' + i"
+            class="mono"
+            rows="2"
+            placeholder="academic acne demand piece game pancake boring organize olympic crowd yoga enforce grocery black image stay fitness adapt advance manual"
+            [(ngModel)]="recoveryShares[i]"
+            [disabled]="recoveryStatus() === 'loading'"
+            spellcheck="false"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-ghost" (click)="addRecoveryShare()" [disabled]="recoveryStatus() === 'loading'">
+          Ajouter un fragment
+        </button>
+      </div>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="!canRecover"
+          (click)="recover()"
+        >
+          {{ recoveryStatus() === 'loading' ? 'Reconstruction…' : 'Reconstruire le secret' }}
+        </button>
+        <button
+          type="button"
+          class="btn-ghost"
+          *ngIf="recoveryStatus() === 'done' || recoveryStatus() === 'error'"
+          (click)="resetRecovery()"
+        >
+          Réinitialiser
+        </button>
+      </div>
+
+      <p class="error-banner" *ngIf="recoveryStatus() === 'error'">
+        {{ recoveryError() }}
+      </p>
+    </section>
+
+    <section class="panel results-panel" *ngIf="recoveryStatus() === 'done'" aria-labelledby="recover-results-title">
+      <h2 id="recover-results-title">Secret reconstruit</h2>
+
+      <div class="field" *ngIf="recoveredMnemonic() as phrase">
+        <label>Phrase mnémonique BIP-39</label>
+        <p class="recovered-value mono">{{ phrase }}</p>
+      </div>
+
+      <div class="field">
+        <label>Entropie (hexadécimal)</label>
+        <p class="recovered-value mono">{{ recoveredHex() }}</p>
+      </div>
+
+      <p class="hint" *ngIf="!recoveredMnemonic()">
+        Cette entropie ne correspond pas à une longueur standard BIP-39 (12 à 24 mots) —
+        seule la valeur hexadécimale est affichée.
+      </p>
+    </section>
+  </main>
+
+  <footer class="foot-note">
+    Ce secret n'est jamais transmis à un serveur : le découpage SLIP-39 et la génération des QR codes
+    s'exécutent entièrement dans ce navigateur.
+  </footer>
+</div>
