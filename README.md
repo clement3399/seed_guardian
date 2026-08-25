@@ -10,12 +10,14 @@ Elle permet de transformer une phrase de récupération BIP-39 (12 à 24 mots) e
 
 ## Architecture
 
-Le projet est réparti sur deux dépôts complémentaires :
+Le projet est réparti sur deux dépôts GitHub complémentaires :
 
-| Dépôt | Rôle |
-|---|---|
-| `slip39-workspace/` | Le cœur cryptographique en Rust (`slip39-core`) + les bindings WASM (`slip39-cli`). |
-| `seed-guardian/` | Le front Angular 18 qui consomme le WASM et fournit l'interface. |
+| Dépôt | Dossier local attendu | Rôle |
+|---|---|---|
+| [clement3399/slip39-core](https://github.com/clement3399/slip39-core) | `slip39-workspace/` | Le cœur cryptographique en Rust (`slip39-core`) + les bindings WASM (`slip39-cli`). |
+| [clement3399/seed_guardian](https://github.com/clement3399/seed_guardian) | `seed-guardian/` | Le front Angular 18 qui consomme le WASM et fournit l'interface. |
+
+> **Attention au nom du dossier.** Le dépôt du cœur s'appelle `slip39-core` sur GitHub, mais [scripts/build-wasm.mjs](scripts/build-wasm.mjs) le cherche sous le nom `slip39-workspace`. Clonez-le donc en renommant le dossier de destination (voir [Installation](#récupérer-les-deux-dépôts)).
 
 Toute la logique cryptographique vit dans `slip39-core`, sans aucune dépendance à une cible de déploiement. Le front n'implémente **aucune** primitive cryptographique : il se contente d'appeler le module WASM. C'est ce découpage qui garantit qu'un audit de sécurité ne porte que sur un seul module.
 
@@ -61,6 +63,26 @@ Les deux dépôts doivent être clonés **côte à côte** — `seed-guardian/` 
 ---
 
 ## Installation et lancement
+
+### Récupérer les deux dépôts
+
+Le cœur cryptographique vit dans un dépôt distinct. Clonez-le **en le renommant** `slip39-workspace` : c'est le nom sous lequel le script de compilation du WASM le cherche.
+
+```bash
+mkdir coffre-seed && cd coffre-seed
+git clone https://github.com/clement3399/slip39-core.git slip39-workspace
+git clone https://github.com/clement3399/seed_guardian.git seed-guardian
+```
+
+Vous devez obtenir cette disposition :
+
+```
+coffre-seed/
+├── slip39-workspace/   ← le cœur Rust (dépôt slip39-core)
+└── seed-guardian/      ← ce dépôt
+```
+
+Sans ce voisinage, `npm start` et `npm run build` échouent avec le message : *« Le dépôt `slip39-workspace` doit être cloné à côté de `seed-guardian`. »*
 
 ### En application Windows (recommandé)
 
@@ -141,8 +163,10 @@ L'exécutable produit est alors issu du code que vous pouvez lire — ce qui év
 
 ### Cœur cryptographique (Rust)
 
+Ces tests vivent dans le dépôt [slip39-core](https://github.com/clement3399/slip39-core), cloné en `slip39-workspace/` :
+
 ```bash
-cd slip39-workspace
+cd ../slip39-workspace
 cargo test
 ```
 
