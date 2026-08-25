@@ -218,8 +218,23 @@ Le module cryptographique est une transposition fidèle de l'implémentation de 
 Ces points sont des travaux restants, pas des détails :
 
 - **Aucun audit externe** n'a été réalisé.
-- **Pas d'effacement mémoire** : les secrets ne sont pas enveloppés dans des types `Zeroize`. Ils subsistent en mémoire après usage, et peuvent atterrir dans un fichier d'échange (swap) ou un dump de crash.
-- **Pas de garantie de temps constant** : aucune protection contre les attaques par canal auxiliaire n'a été ajoutée (le crate `subtle` serait le point de départ).
+- **Effacement mémoire partiel** : `slip39-core` efface désormais ses secrets (voir ci-dessous), mais cette garantie s'arrête à la frontière du WASM. Une fois le secret rendu à JavaScript, sa durée de vie dépend du ramasse-miettes du moteur, qui n'offre aucun effacement — la seed reconstituée affichée à l'écran peut donc subsister en mémoire, et atterrir dans un fichier d'échange (swap) ou un dump de crash.
+- **Pas de garantie de temps constant** : aucune protection contre les attaques par canal auxiliaire n'a été ajoutée. Le point le plus exposé est l'arithmétique GF(256), qui indexe des tables de logarithmes avec des octets dérivés du secret — un motif observable par un attaquant capable de mesurer le cache. Le corriger suppose une multiplication sans table ; le crate `subtle` couvrirait par ailleurs les comparaisons.
+
+### Effacement mémoire (`zeroize`)
+
+Le cœur Rust enveloppe ses secrets dans des types qui écrasent la mémoire à la destruction, y compris lors des sorties par erreur ou panique :
+
+| Élément effacé | Où |
+|---|---|
+| Secret maître, texte chiffré, moitiés du réseau de Feistel | `cipher.rs` |
+| Clés dérivées PBKDF2 (états `u`/`t` des 10 000 itérations) | `cipher.rs` |
+| Parts (`RawShare`, `Share.value`), aléa du polynôme, digests | `shamir.rs`, `share.rs` |
+| Formes intermédiaires (bits, indices de mots) des mnémoniques | `share.rs` |
+
+Les réaffectations en boucle — le `l = r` du Feistel, le `u = next` de PBKDF2 — sont explicitement effacées avant écrasement : sans cela, l'ancien tampon serait abandonné intact. Un test (`raw_share_is_zeroized_on_drop`) relit la mémoire libérée pour vérifier que l'effacement a bien lieu.
+
+**Ce que cela ne couvre pas** : ni les copies faites par l'allocateur ou le ramasse-miettes lors d'une réallocation, ni les registres du processeur, ni les pages déjà écrites sur le disque par le système avant l'effacement. `zeroize` réduit la fenêtre d'exposition, il ne l'annule pas. La précaution qui compte davantage reste la machine déconnectée.
 
 ### Choix assumé : pas de passphrase
 
@@ -247,7 +262,8 @@ Ajouter un secret unique à mémoriser à un outil conçu pour supprimer la dép
 - [x] **P3** — packaging en exécutable Windows autonome via Tauri 2 (voir [PACKAGING-WINDOWS.md](PACKAGING-WINDOWS.md)).
 - [ ] Signature du binaire — configuration prête, certificat à obtenir (voir [SIGNATURE.md](SIGNATURE.md)).
 - [ ] Support de la hiérarchie multi-groupes (le cœur la gère déjà, l'UI la limite à un seul groupe).
-- [ ] Effacement mémoire (`zeroize`) et opérations à temps constant (`subtle`).
+- [x] Effacement mémoire (`zeroize`) dans le cœur Rust — reste à étendre côté JavaScript, où le langage ne le permet pas directement.
+- [ ] Opérations à temps constant : multiplication GF(256) sans table, comparaisons via `subtle`.
 - [ ] Audit de sécurité externe.
 
 ---
