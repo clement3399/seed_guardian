@@ -8,6 +8,40 @@ Elle permet de transformer une phrase de récupération BIP-39 (12 à 24 mots) e
 
 ---
 
+## Télécharger
+
+L'application est distribuée en **exécutable Windows autonome** : rien à installer, aucune dépendance, aucun accès réseau.
+
+**➜ [Télécharger la dernière version](https://github.com/clement3399/seed_guardian/releases/latest)**
+
+| Fichier | Taille | Pour qui |
+|---|---|---|
+| `seed-guardian.exe` | 3,1 Mo | **Le choix par défaut.** Portable, à double-cliquer. Rien n'est installé, rien n'est écrit dans le registre — idéal sur une clé USB, pour un usage sur machine déconnectée. |
+| `seed-guardian_0.1.0_x64-setup.exe` | 1,2 Mo | Installeur classique : raccourci au menu Démarrer et désinstallation propre. |
+| `seed-guardian_0.1.0_x64_en-US.msi` | 1,7 Mo | Paquet MSI, pour un déploiement en entreprise. |
+
+Windows 10 ou 11, 64 bits. Aucune version macOS ni Linux n'est publiée pour l'instant : le packaging n'est configuré que pour Windows.
+
+### Au premier lancement
+
+Les binaires **ne sont pas signés** (voir [SIGNATURE.md](SIGNATURE.md)). Windows affichera donc un écran bleu « Windows a protégé votre ordinateur » avec la mention *Éditeur inconnu*. Pour lancer l'application : **Informations complémentaires** → **Exécuter quand même**.
+
+Cet avertissement signale l'absence de certificat d'éditeur, pas la détection d'un logiciel malveillant. Il disparaîtra lorsque le binaire sera signé.
+
+### Vérifier ce que vous avez téléchargé
+
+Chaque publication est accompagnée d'un fichier `SHA256SUMS.txt`. Comparez-y l'empreinte de votre fichier :
+
+```powershell
+Get-FileHash .\seed-guardian.exe -Algorithm SHA256
+```
+
+⚠️ **Ce que cette vérification prouve, et ce qu'elle ne prouve pas.** Les empreintes sont hébergées au même endroit que les binaires : quiconque parviendrait à remplacer l'un remplacerait aussi l'autre. Elle protège donc contre un téléchargement corrompu ou un fichier récupéré ailleurs — pas contre un dépôt compromis.
+
+Tant que les binaires ne sont pas signés, la seule vérification qui ferme entièrement la question est de **compiler vous-même** depuis les sources (voir [Installation et lancement](#installation-et-lancement)). Pour une seed de valeur, c'est la voie à privilégier — le raisonnement complet est développé dans [Vérifier l'intégrité de l'exécutable](#vérifier-lintégrité-de-lexécutable).
+
+---
+
 ## Architecture
 
 Le projet est réparti sur deux dépôts GitHub complémentaires :
@@ -85,6 +119,8 @@ coffre-seed/
 Sans ce voisinage, `npm start` et `npm run build` échouent avec le message : *« Le dépôt `slip39-workspace` doit être cloné à côté de `seed-guardian`. »*
 
 ### En application Windows (recommandé)
+
+> Pour un simple usage, nul besoin de compiler : téléchargez le binaire prêt à l'emploi (voir [Télécharger](#télécharger)). Cette section décrit la compilation depuis les sources.
 
 ```bash
 cd seed-guardian
@@ -260,6 +296,7 @@ Ajouter un secret unique à mémoriser à un outil conçu pour supprimer la dép
 - [x] **P1** — cœur SLIP-39 en Rust, validé contre les vecteurs officiels.
 - [x] **P2** — bindings WASM et interface Angular (découpage, reconstruction, QR codes, impression).
 - [x] **P3** — packaging en exécutable Windows autonome via Tauri 2 (voir [PACKAGING-WINDOWS.md](PACKAGING-WINDOWS.md)).
+- [x] Distribution des binaires en [GitHub Releases](https://github.com/clement3399/seed_guardian/releases/latest), avec empreintes SHA-256.
 - [ ] Signature du binaire — configuration prête, certificat à obtenir (voir [SIGNATURE.md](SIGNATURE.md)).
 - [ ] Support de la hiérarchie multi-groupes (le cœur la gère déjà, l'UI la limite à un seul groupe).
 - [x] Effacement mémoire (`zeroize`) dans le cœur Rust — reste à étendre côté JavaScript, où le langage ne le permet pas directement.
